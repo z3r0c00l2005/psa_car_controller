@@ -102,26 +102,44 @@ config_otp_layout = dbc.Row(dbc.Col(className="col-md-12 col-lg-2 m-3", children
 
 
 def _get_options_layout():
-    """Build the Options tab layout, reading current config for initial toggle value."""
+    """Build the Options tab layout, reading current config for initial values."""
     try:
         config = ConfigRepository.read_config()
         current_imperial = config.Options.use_imperial
     except Exception:  # pylint: disable=broad-except
         current_imperial = False
 
-    return dbc.Row(dbc.Col(md=12, lg=4, className="m-3", children=[
+    try:
+        import configparser
+        ini = configparser.ConfigParser(allow_no_value=True)
+        ini.read("config.ini")
+        def _get(section, key, fallback=""):
+            return ini.get(section, key, fallback=fallback) if ini.has_section(section) else fallback
+    except Exception:  # pylint: disable=broad-except
+        def _get(section, key, fallback=""):  # pylint: disable=function-redefined
+            return fallback
+
+    def _row(label, input_el, hint=""):
+        """Horizontal form row: label (left) | input (centre) | hint (right)."""
+        return dbc.Row(className="align-items-center mb-2", children=[
+            dbc.Col(dbc.Label(label, className="mb-0 text-end"), md=3),
+            dbc.Col(input_el, md=4),
+            dbc.Col(html.Small(hint, className="text-muted") if hint else None, md=5),
+        ])
+
+    currency = _get("General", "currency", "£")
+
+    return dbc.Row(dbc.Col(md=12, lg=8, className="m-3", children=[
         dbc.Row(html.H2('Options')),
-        dbc.Row(className="ms-2 mt-3", children=[
+
+        # ── Display units ────────────────────────────────────────────────────
+        dbc.Row(className="ms-2 mt-3 mb-3", children=[
             dbc.Label("Display units", html_for="options-unit-toggle", className="fw-bold"),
             dbc.Row(className="align-items-center g-2 mt-1", children=[
                 dbc.Col(html.Span("Metric (km, km/h)", className="text-muted"), width="auto"),
                 dbc.Col(
-                    dbc.Switch(
-                        id="options-unit-toggle",
-                        value=current_imperial,
-                        className="mx-2",
-                    ),
-                    width="auto"
+                    dbc.Switch(id="options-unit-toggle", value=current_imperial, className="mx-2"),
+                    width="auto",
                 ),
                 dbc.Col(html.Span("Imperial (mi, mph)", className="text-muted"), width="auto"),
             ]),
@@ -131,7 +149,123 @@ def _get_options_layout():
                 color="secondary",
                 className="mt-1",
             ),
-            dbc.Row(dbc.Button("Save", color="primary", id="options-save-btn", className="mt-3 w-auto")),
+        ]),
+
+        html.Hr(className="my-4"),
+
+        # ── General ──────────────────────────────────────────────────────────
+        dbc.Row(className="ms-2 mb-3", children=[
+            dbc.Label("General", className="fw-bold fs-6 mb-2"),
+            _row(
+                "Currency symbol",
+                dbc.Input(type="text", id="opt-currency", value=currency,
+                          placeholder="£", maxLength=5),
+                "e.g. £, €, $",
+            ),
+            _row(
+                "Minimum trip length",
+                dbc.InputGroup([
+                    dbc.Input(type="number", id="opt-min-trip",
+                              value=_get("General", "minimum trip length", "1"),
+                              placeholder="1", min=0, step=0.1),
+                    dbc.InputGroupText("km"),
+                ]),
+                "Shorter trips are excluded from statistics",
+            ),
+        ]),
+
+        html.Hr(className="my-4"),
+
+        # ── Electricity pricing ───────────────────────────────────────────────
+        dbc.Row(className="ms-2 mb-3", children=[
+            dbc.Label("Electricity pricing", className="fw-bold fs-6 mb-2"),
+            _row(
+                "Day price",
+                dbc.InputGroup([
+                    dbc.InputGroupText(currency, id="opt-currency-day"),
+                    dbc.Input(type="number", id="opt-day-price",
+                              value=_get("Electricity config", "day price", ""),
+                              placeholder="0.15", min=0, step=0.001),
+                ]),
+                "Price per kWh for daytime charging",
+            ),
+            _row(
+                "Night price",
+                dbc.InputGroup([
+                    dbc.InputGroupText(currency, id="opt-currency-night"),
+                    dbc.Input(type="number", id="opt-night-price",
+                              value=_get("Electricity config", "night price", ""),
+                              placeholder="0.10", min=0, step=0.001),
+                ]),
+                "Optional off-peak rate",
+            ),
+            _row(
+                "Night start",
+                dbc.Input(type="text", id="opt-night-start",
+                          value=_get("Electricity config", "night hour start", ""),
+                          placeholder="22h30"),
+                "Format: 22h30",
+            ),
+            _row(
+                "Night end",
+                dbc.Input(type="text", id="opt-night-end",
+                          value=_get("Electricity config", "night hour end", ""),
+                          placeholder="06h00"),
+                "Format: 06h00",
+            ),
+        ]),
+
+        html.Hr(className="my-4"),
+
+        # ── DC / fast charging ────────────────────────────────────────────────
+        dbc.Row(className="ms-2 mb-3", children=[
+            dbc.Label("DC / fast charging", className="fw-bold fs-6 mb-2"),
+            _row(
+                "DC charge price",
+                dbc.InputGroup([
+                    dbc.InputGroupText(currency, id="opt-currency-dc"),
+                    dbc.Input(type="number", id="opt-dc-price",
+                              value=_get("Electricity config", "dc charge price", ""),
+                              placeholder="0.65", min=0, step=0.001),
+                ]),
+                "Price per kWh for DC charging",
+            ),
+            _row(
+                "High-speed DC price",
+                dbc.InputGroup([
+                    dbc.InputGroupText(currency, id="opt-currency-hv"),
+                    dbc.Input(type="number", id="opt-hv-price",
+                              value=_get("Electricity config", "high speed dc charge price", ""),
+                              placeholder="0.79", min=0, step=0.001),
+                ]),
+                "Price per kWh for high-speed DC",
+            ),
+            _row(
+                "High-speed threshold",
+                dbc.InputGroup([
+                    dbc.Input(type="number", id="opt-hv-threshold",
+                              value=_get("Electricity config", "high speed dc charge threshold", ""),
+                              placeholder="50", min=0, step=1),
+                    dbc.InputGroupText("kW"),
+                ]),
+                "Minimum kW to classify as high-speed",
+            ),
+            _row(
+                "Charger efficiency",
+                dbc.Input(type="number", id="opt-efficiency",
+                          value=_get("Electricity config", "charger efficiency", "0.8942"),
+                          placeholder="0.8942", min=0, max=1, step=0.0001),
+                "0–1 (default: 0.8942)",
+            ),
+        ]),
+
+        html.Hr(className="my-4"),
+
+        # ── Save ─────────────────────────────────────────────────────────────
+        dbc.Row(className="ms-2", children=[
+            dbc.Col(width="auto", children=[
+                dbc.Button("Save", color="primary", id="options-save-btn", className="w-auto"),
+            ]),
             html.Div(id="options-save-result", className="mt-2"),
         ]),
     ]))
@@ -226,34 +360,88 @@ def finishOtp(n_clicks, code_pin, sms_code):  # pylint: disable=unused-argument
 
 
 @dash_app.callback(
+    Output("opt-currency-day", "children"),
+    Output("opt-currency-night", "children"),
+    Output("opt-currency-dc", "children"),
+    Output("opt-currency-hv", "children"),
+    Input("opt-currency", "value"),
+)
+def update_currency_symbols(currency):
+    """Keep all currency prefix badges in sync with the currency input field."""
+    symbol = (currency or "£").strip() or "£"
+    return symbol, symbol, symbol, symbol
+
+
+@dash_app.callback(
     Output("options-save-result", "children"),
     Input("options-save-btn", "n_clicks"),
     State("options-unit-toggle", "value"),
+    State("opt-currency", "value"),
+    State("opt-min-trip", "value"),
+    State("opt-day-price", "value"),
+    State("opt-night-price", "value"),
+    State("opt-night-start", "value"),
+    State("opt-night-end", "value"),
+    State("opt-dc-price", "value"),
+    State("opt-hv-price", "value"),
+    State("opt-hv-threshold", "value"),
+    State("opt-efficiency", "value"),
     prevent_initial_call=True,
 )
-def save_options(n_clicks, use_imperial):  # pylint: disable=unused-argument
-    """Persist the metric/imperial toggle to config.ini and apply it to the view layer."""
+def save_options(n_clicks, use_imperial,  # pylint: disable=unused-argument
+                 currency, min_trip,
+                 day_price, night_price, night_start, night_end,
+                 dc_price, hv_price, hv_threshold, efficiency):
+    """Persist all options to config and config.ini."""
     ctx = callback_context
     if not ctx.triggered:
         raise PreventUpdate()
     try:
-        from psa_car_controller.web import figures  # avoid circular import at module level
-        from psa_car_controller.web.view import views  # bust cache and regenerate
+        import configparser
+        from psa_car_controller.web import figures
+        from psa_car_controller.web.view import views
 
+        # ── 1. Write config.ini first so all subsequent reads get new values ──
+        ini = configparser.ConfigParser(allow_no_value=True)
+        ini.read("config.ini")
+
+        if not ini.has_section("General"):
+            ini.add_section("General")
+        if not ini.has_section("Electricity config"):
+            ini.add_section("Electricity config")
+
+        ini.set("General", "currency", (currency or "£").strip())
+        ini.set("General", "minimum trip length", str(min_trip or "1").strip())
+
+        def _set_elec(key, value):
+            ini.set("Electricity config", key, str(value).strip() if value not in (None, "") else "")
+
+        _set_elec("day price",                      day_price)
+        _set_elec("night price",                    night_price)
+        _set_elec("night hour start",               night_start)
+        _set_elec("night hour end",                 night_end)
+        _set_elec("dc charge price",                dc_price)
+        _set_elec("high speed dc charge price",     hv_price)
+        _set_elec("high speed dc charge threshold", hv_threshold)
+        _set_elec("charger efficiency",             efficiency or "0.8942")
+
+        with open("config.ini", "w", encoding="utf-8") as f:
+            ini.write(f)
+
+        # ── 2. Save metric/imperial toggle ────────────────────────────────────
         config = ConfigRepository.read_config()
         config.Options.use_imperial = bool(use_imperial)
         config.write_config()
 
-        # Apply immediately to the view layer
+        # ── 3. Apply flags to figures module and bust the dashboard cache ─────
         figures.USE_IMPERIAL = bool(use_imperial)
-        # Bust the layout cache and regenerate figures so changes are
-        # visible on next page load without a server restart
+        figures.CURRENCY = (currency or "£").strip()
         views.cached_layout = None
         views.update_trips()
 
         unit_label = "imperial (mi, mph)" if use_imperial else "metric (km, km/h)"
         return dbc.Alert(
-            f"Saved! Display units set to {unit_label}. Navigate back to the dashboard to see the changes.",
+            f"Saved! Settings applied immediately.",
             color="success",
             duration=6000,
         )
