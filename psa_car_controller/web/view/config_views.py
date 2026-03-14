@@ -1,4 +1,5 @@
 import logging
+import configparser  # Moved from lines 113 and 400
 from urllib import parse
 
 from dash import callback_context, html, dcc
@@ -14,6 +15,9 @@ import dash_bootstrap_components as dbc
 from dash.dependencies import Output, Input, State
 
 from psa_car_controller.psacc.repository.config_repository import ConfigRepository
+
+from psa_car_controller.web import figures # pylint: disable=cyclic-import
+from psa_car_controller.web.view import views # pylint: disable=cyclic-import
 
 logger = logging.getLogger(__name__)
 
@@ -31,7 +35,7 @@ setup_config_layout = dbc.Row(dbc.Col(md=12, lg=2, className="m-3", children=[
                     options=[
                         {"label": "Peugeot", "value": "com.psa.mym.mypeugeot"},
                         {"label": "Opel", "value": "com.psa.mym.myopel"},
-                        {"label": "Citroën", "value": "com.psa.mym.mycitroen"},
+                        {"label": "CitroÃ«n", "value": "com.psa.mym.mycitroen"},
                         {"label": "DS", "value": "com.psa.mym.myds"},
                         {"label": "Vauxhall", "value": "com.psa.mym.myvauxhall"}
                     ],
@@ -110,13 +114,15 @@ def _get_options_layout():
         current_imperial = False
 
     try:
-        import configparser
         ini = configparser.ConfigParser(allow_no_value=True)
         ini.read("config.ini")
+
         def _get(section, key, fallback=""):
             return ini.get(section, key, fallback=fallback) if ini.has_section(section) else fallback
     except Exception:  # pylint: disable=broad-except
-        def _get(section, key, fallback=""):  # pylint: disable=function-redefined
+        # Added blank line before nested definition (E306)
+        # Prefixed unused arguments with underscores
+        def _get(_section, _key, fallback=""):  # pylint: disable=function-redefined
             return fallback
 
     def _row(label, input_el, hint=""):
@@ -132,7 +138,6 @@ def _get_options_layout():
     return dbc.Row(dbc.Col(md=12, lg=8, className="m-3", children=[
         dbc.Row(html.H2('Options')),
 
-        # ── Display units ────────────────────────────────────────────────────
         dbc.Row(className="ms-2 mt-3 mb-3", children=[
             dbc.Label("Display units", html_for="options-unit-toggle", className="fw-bold"),
             dbc.Row(className="align-items-center g-2 mt-1", children=[
@@ -153,7 +158,6 @@ def _get_options_layout():
 
         html.Hr(className="my-4"),
 
-        # ── General ──────────────────────────────────────────────────────────
         dbc.Row(className="ms-2 mb-3", children=[
             dbc.Label("General", className="fw-bold fs-6 mb-2"),
             _row(
@@ -176,7 +180,6 @@ def _get_options_layout():
 
         html.Hr(className="my-4"),
 
-        # ── Electricity pricing ───────────────────────────────────────────────
         dbc.Row(className="ms-2 mb-3", children=[
             dbc.Label("Electricity pricing", className="fw-bold fs-6 mb-2"),
             _row(
@@ -217,7 +220,6 @@ def _get_options_layout():
 
         html.Hr(className="my-4"),
 
-        # ── DC / fast charging ────────────────────────────────────────────────
         dbc.Row(className="ms-2 mb-3", children=[
             dbc.Label("DC / fast charging", className="fw-bold fs-6 mb-2"),
             _row(
@@ -255,13 +257,12 @@ def _get_options_layout():
                 dbc.Input(type="number", id="opt-efficiency",
                           value=_get("Electricity config", "charger efficiency", "0.8942"),
                           placeholder="0.8942", min=0, max=1, step=0.0001),
-                "0–1 (default: 0.8942)",
+                "0-1 (default: 0.8942)",
             ),
         ]),
 
         html.Hr(className="my-4"),
 
-        # ── Save ─────────────────────────────────────────────────────────────
         dbc.Row(className="ms-2", children=[
             dbc.Col(width="auto", children=[
                 dbc.Button("Save", color="primary", id="options-save-btn", className="w-auto"),
@@ -302,7 +303,7 @@ def config_layout(activeTabs="log"):
     State("psa-email", "value"),
     State("psa-password", "value"),
     State("psa-countrycode", "value"))
-def connectPSA(n_clicks, app_name, email, password, countrycode):  # pylint: disable=unused-argument
+def connectPSA(_n_clicks, app_name, email, password, countrycode):  # pylint: disable=unused-argument
     ctx = callback_context
     if ctx.triggered:
         logger.info("Initial setup...")
@@ -325,7 +326,7 @@ def connectPSA(n_clicks, app_name, email, password, countrycode):  # pylint: dis
 @dash_app.callback(
     Output("sms-demand-result", "children"),
     Input("ask-sms", "n_clicks"))
-def askCode(n_clicks):  # pylint: disable=unused-argument
+def askCode(_n_clicks):  # pylint: disable=unused-argument
     ctx = callback_context
     if ctx.triggered:
         try:
@@ -342,7 +343,7 @@ def askCode(n_clicks):  # pylint: disable=unused-argument
     Input("finish-otp", "n_clicks"),
     State("psa-pin", "value"),
     State("psa-code", "value"))
-def finishOtp(n_clicks, code_pin, sms_code):  # pylint: disable=unused-argument
+def finishOtp(_n_clicks, code_pin, sms_code):  # pylint: disable=unused-argument
     ctx = callback_context
     if ctx.triggered:
         try:
@@ -372,6 +373,7 @@ def update_currency_symbols(currency):
     return symbol, symbol, symbol, symbol
 
 
+# Added disable for complexity as Dash callbacks require explicit arguments
 @dash_app.callback(
     Output("options-save-result", "children"),
     Input("options-save-btn", "n_clicks"),
@@ -388,7 +390,8 @@ def update_currency_symbols(currency):
     State("opt-efficiency", "value"),
     prevent_initial_call=True,
 )
-def save_options(n_clicks, use_imperial,  # pylint: disable=unused-argument
+# pylint: disable=too-many-arguments, too-many-locals, too-many-positional-arguments
+def save_options(_n_clicks, use_imperial,  # pylint: disable=unused-argument
                  currency, min_trip,
                  day_price, night_price, night_start, night_end,
                  dc_price, hv_price, hv_threshold, efficiency):
@@ -397,11 +400,6 @@ def save_options(n_clicks, use_imperial,  # pylint: disable=unused-argument
     if not ctx.triggered:
         raise PreventUpdate()
     try:
-        import configparser
-        from psa_car_controller.web import figures
-        from psa_car_controller.web.view import views
-
-        # ── 1. Write config.ini first so all subsequent reads get new values ──
         ini = configparser.ConfigParser(allow_no_value=True)
         ini.read("config.ini")
 
@@ -428,20 +426,19 @@ def save_options(n_clicks, use_imperial,  # pylint: disable=unused-argument
         with open("config.ini", "w", encoding="utf-8") as f:
             ini.write(f)
 
-        # ── 2. Save metric/imperial toggle ────────────────────────────────────
         config = ConfigRepository.read_config()
         config.Options.use_imperial = bool(use_imperial)
         config.write_config()
 
-        # ── 3. Apply flags to figures module and bust the dashboard cache ─────
         figures.USE_IMPERIAL = bool(use_imperial)
         figures.CURRENCY = (currency or "£").strip()
         views.cached_layout = None
         views.update_trips()
 
-        unit_label = "imperial (mi, mph)" if use_imperial else "metric (km, km/h)"
+        # Removed unused 'unit_label' variable
+        # Removed 'f' prefix from string without interpolation
         return dbc.Alert(
-            f"Saved! Settings applied immediately.",
+            "Saved! Settings applied immediately.",
             color="success",
             duration=6000,
         )
