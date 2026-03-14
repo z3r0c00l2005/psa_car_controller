@@ -257,7 +257,6 @@ def serve_layout():
             )
             figures.CURRENCY = APP.config.General.currency
             figures.EXPORT_FORMAT = APP.config.General.export_format
-          #  figures.USE_IMPERIAL = APP.config.Options.use_imperial
             summary_tab = [
                 dbc.Container(dbc.Row(id="summary-cards",
                                       children=create_card(figures.get_summary_cards())), fluid=True),
@@ -270,11 +269,9 @@ def serve_layout():
             maps = fig_filter.add_map(dcc.Graph(id="trips_map", style={"height": '90vh'}), "lat",
                                       ["long", "start_at_str"], figures.trips_map)
             fig_filter.add_table("trips", figures.table_fig)
- 
-            logger.info("serve_layout: USE_IMPERIAL=%s, id=%s", figures.USE_IMPERIAL, id(figures))
-
             fig_filter.add_table("chargings", figures.battery_table)
-            fig_filter.src = {"trips": figures.convert_trips_for_display(trips.get_trips_as_dict()), "chargings": figures.convert_chargings_for_display(chargings)}
+            fig_filter.src = {"trips": figures.convert_trips_for_display(trips.get_trips_as_dict()), 
+                            "chargings": figures.convert_chargings_for_display(chargings)}
             fig_filter.set_clientside_callback(dash_app, {"minimumLength": APP.config.General.minimum_trip_length})
             create_callback()
         except (IndexError, TypeError, NameError, AssertionError, NameError, AttributeError):

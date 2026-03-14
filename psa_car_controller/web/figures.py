@@ -161,7 +161,7 @@ def get_figures(car: Car):
                  {'id': 'start_at_str', 'name': 'start at', 'type': 'datetime'},
                  {'id': 'duration', 'name': 'duration', 'type': 'numeric',
                   'format': deepcopy(nb_format).symbol_suffix(" min").precision(0)},
-                 {'id': 'speed_average', 'name': f'avg. speed', 'type': 'numeric',
+                 {'id': 'speed_average', 'name': 'avg. speed', 'type': 'numeric',
                   'format': deepcopy(nb_format).symbol_suffix(f" {speed}").precision(0)},
                  {'id': 'consumption_km', 'name': 'avg. consumption', 'type': 'numeric',
                   'format': deepcopy(nb_format).symbol_suffix(f" kWh/100{dist}")},

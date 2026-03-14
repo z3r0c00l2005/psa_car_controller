@@ -246,8 +246,6 @@ def save_options(n_clicks, use_imperial):  # pylint: disable=unused-argument
 
         # Apply immediately to the view layer
         figures.USE_IMPERIAL = bool(use_imperial)
-        logger.info("save_options: set USE_IMPERIAL=%s, id=%s", figures.USE_IMPERIAL, id(figures))
-        logger.info("save_options: raw use_imperial=%s type=%s", use_imperial, type(use_imperial))
         # Bust the layout cache and regenerate figures so changes are
         # visible on next page load without a server restart
         views.cached_layout = None
