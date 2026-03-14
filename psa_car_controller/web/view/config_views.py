@@ -16,8 +16,8 @@ from dash.dependencies import Output, Input, State
 
 from psa_car_controller.psacc.repository.config_repository import ConfigRepository
 
-from psa_car_controller.web import figures # pylint: disable=cyclic-import
-from psa_car_controller.web.view import views # pylint: disable=cyclic-import
+from psa_car_controller.web import figures  # pylint: disable=cyclic-import
+from psa_car_controller.web.view import views  # pylint: disable=cyclic-import
 
 logger = logging.getLogger(__name__)
 
@@ -414,14 +414,14 @@ def save_options(_n_clicks, use_imperial,  # pylint: disable=unused-argument
         def _set_elec(key, value):
             ini.set("Electricity config", key, str(value).strip() if value not in (None, "") else "")
 
-        _set_elec("day price",                      day_price)
-        _set_elec("night price",                    night_price)
-        _set_elec("night hour start",               night_start)
-        _set_elec("night hour end",                 night_end)
-        _set_elec("dc charge price",                dc_price)
-        _set_elec("high speed dc charge price",     hv_price)
+        _set_elec("day price", day_price)
+        _set_elec("night price", night_price)
+        _set_elec("night hour start", night_start)
+        _set_elec("night hour end", night_end)
+        _set_elec("dc charge price", dc_price)
+        _set_elec("high speed dc charge price", hv_price)
         _set_elec("high speed dc charge threshold", hv_threshold)
-        _set_elec("charger efficiency",             efficiency or "0.8942")
+        _set_elec("charger efficiency", efficiency or "0.8942")
 
         with open("config.ini", "w", encoding="utf-8") as f:
             ini.write(f)
