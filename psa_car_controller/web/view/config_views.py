@@ -13,6 +13,8 @@ from psa_car_controller.web.app import dash_app
 import dash_bootstrap_components as dbc
 from dash.dependencies import Output, Input, State
 
+from psa_car_controller.psacc.repository.config_repository import ConfigRepository
+
 logger = logging.getLogger(__name__)
 
 app = PSACarController()
@@ -99,6 +101,42 @@ config_otp_layout = dbc.Row(dbc.Col(className="col-md-12 col-lg-2 m-3", children
     ])]))
 
 
+def _get_options_layout():
+    """Build the Options tab layout, reading current config for initial toggle value."""
+    try:
+        config = ConfigRepository.read_config()
+        current_imperial = config.Options.use_imperial
+    except Exception:  # pylint: disable=broad-except
+        current_imperial = False
+
+    return dbc.Row(dbc.Col(md=12, lg=4, className="m-3", children=[
+        dbc.Row(html.H2('Options')),
+        dbc.Row(className="ms-2 mt-3", children=[
+            dbc.Label("Display units", html_for="options-unit-toggle", className="fw-bold"),
+            dbc.Row(className="align-items-center g-2 mt-1", children=[
+                dbc.Col(html.Span("Metric (km, km/h)", className="text-muted"), width="auto"),
+                dbc.Col(
+                    dbc.Switch(
+                        id="options-unit-toggle",
+                        value=current_imperial,
+                        className="mx-2",
+                    ),
+                    width="auto"
+                ),
+                dbc.Col(html.Span("Imperial (mi, mph)", className="text-muted"), width="auto"),
+            ]),
+            dbc.FormText(
+                "Changes the units shown in the dashboard only. "
+                "All data is always stored internally as metric.",
+                color="secondary",
+                className="mt-1",
+            ),
+            dbc.Row(dbc.Button("Save", color="primary", id="options-save-btn", className="mt-3 w-auto")),
+            html.Div(id="options-save-result", className="mt-2"),
+        ]),
+    ]))
+
+
 def log_layout():
     with open(LOG_FILE, "r", encoding="utf-8") as f:
         log_text = f.read()
@@ -118,7 +156,9 @@ def config_layout(activeTabs="log"):
     return dbc.Tabs(active_tab=activeTabs, children=[
         dbc.Tab([log_layout()], label="Log", tab_id="log"),
         dbc.Tab([setup_config_layout], label="User config", tab_id="login"),
-        dbc.Tab([config_otp_layout], label="OTP config", tab_id="otp")])
+        dbc.Tab([config_otp_layout], label="OTP config", tab_id="otp"),
+        dbc.Tab([_get_options_layout()], label="Options", tab_id="options"),
+    ])
 
 
 @dash_app.callback(
@@ -136,8 +176,9 @@ def connectPSA(n_clicks, app_name, email, password, countrycode):  # pylint: dis
             global INITIAL_SETUP
             INITIAL_SETUP = InitialSetup(app_name, email, password, countrycode)
             redirect_uri = parse.quote(INITIAL_SETUP.psacc.manager.generate_redirect_url())
-            return dbc.Alert(["Success !", html.A(" Go to login",
-                                                  href=f"{request.url_root}config_connect?url={redirect_uri}")],
+            return dbc.Alert(["Success !",
+                              html.A(" Go to login",
+                                     href=f"{request.url_root}config_connect?url={redirect_uri}")],
                              color="success")
         except Exception as e:
             res = str(e)
@@ -182,3 +223,42 @@ def finishOtp(n_clicks, code_pin, sms_code):  # pylint: disable=unused-argument
             logger.exception("finishOtp:")
             return dbc.Alert(res, color="danger")
     raise PreventUpdate()
+
+
+@dash_app.callback(
+    Output("options-save-result", "children"),
+    Input("options-save-btn", "n_clicks"),
+    State("options-unit-toggle", "value"),
+    prevent_initial_call=True,
+)
+def save_options(n_clicks, use_imperial):  # pylint: disable=unused-argument
+    """Persist the metric/imperial toggle to config.ini and apply it to the view layer."""
+    ctx = callback_context
+    if not ctx.triggered:
+        raise PreventUpdate()
+    try:
+        from psa_car_controller.web import figures  # avoid circular import at module level
+        from psa_car_controller.web.view import views  # bust cache and regenerate
+
+        config = ConfigRepository.read_config()
+        config.Options.use_imperial = bool(use_imperial)
+        config.write_config()
+
+        # Apply immediately to the view layer
+        figures.USE_IMPERIAL = bool(use_imperial)
+        logger.info("save_options: set USE_IMPERIAL=%s, id=%s", figures.USE_IMPERIAL, id(figures))
+        logger.info("save_options: raw use_imperial=%s type=%s", use_imperial, type(use_imperial))
+        # Bust the layout cache and regenerate figures so changes are
+        # visible on next page load without a server restart
+        views.cached_layout = None
+        views.update_trips()
+
+        unit_label = "imperial (mi, mph)" if use_imperial else "metric (km, km/h)"
+        return dbc.Alert(
+            f"Saved! Display units set to {unit_label}. Navigate back to the dashboard to see the changes.",
+            color="success",
+            duration=6000,
+        )
+    except Exception as e:  # pylint: disable=broad-except
+        logger.exception("save_options:")
+        return dbc.Alert(str(e), color="danger")
